@@ -1,5 +1,5 @@
 // Mileage award seats: data/award.json from koreanair-award-alert (updatedAt, routes[{cabin,dep,arr,name,area,dates{YYYYMMDD:[flights]}}]).
-import {el} from './ui.js';
+import {el} from './ui.js?v=20261004c';
 
 const CABIN={F:'일등석',P:'프레스티지',E:'일반석'};
 const AREA={AME:'미주',EUR:'유럽',OCN:'대양주',EAA:'일본·중국',SEA:'동남아',CIS:'몽골'};
