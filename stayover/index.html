@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>STAYOVER — 연결 여정 찾기</title><link rel="stylesheet" href="list.css"><script defer src="list.js?v=20261004-9"></script></head>
+<body>
+<header class="top"><div class="wrap top-inner"><a class="brand" href="./">STAYOVER</a><nav><a href="compare.html">직접 계산기</a><a href="plan.html">구현계획</a></nav></div></header>
+<main class="wrap">
+  <form class="searchbar" id="search">
+    <div class="field"><span class="icon" aria-hidden="true">✈</span><div><small>출발</small><strong>인천 (ICN)</strong></div></div>
+    <label class="field grow"><span class="icon" aria-hidden="true">📅</span><div><small>첫 출국월</small><input id="month" type="hidden" value="2027-01"><select id="year" aria-label="첫 출국 연도"></select><select id="month-number" aria-label="첫 출국 월"></select></div></label>
+    <div class="field"><div><small>여행 일정</small><strong id="plan-text">여행 6일 · 한국 91~119일 · 여행 6일</strong></div></div>
+    <div class="field"><span class="icon" aria-hidden="true">👤</span><div><small>탑승객</small><label>성인 <input id="people" type="number" min="1" max="9" value="1" required>명 · 일반석</label><span id="people-text" hidden></span></div></div>
+    <button type="submit" class="search-btn">🔍 검색</button>
+    <fieldset class="dest-options"><legend>여행지 선택 <small>(체크한 도시마다 변태발권 왕복 2장을 계산)</small></legend><div id="dest-picker"></div><p class="estimate" id="estimate"></p></fieldset>
+    <fieldset class="schedule-options"><legend>여행 일정 설정</legend>
+      <label>첫 여행 <input id="trip-days" type="number" min="1" max="30" value="6" required>일</label>
+      <label>한국 체류 <input id="stay-min" type="number" min="91" max="119" value="91" required>~<input id="stay-max" type="number" min="91" max="119" value="119" required>일</label><input id="stay-days" type="hidden" value="105">
+      <label>두 번째 여행 <input id="second-trip-days" type="number" min="1" max="30" value="6" required>일</label>
+      <label>첫 출국 가능일 <input id="departure-from" type="date" required></label>
+      <label>마지막 출국 가능일 <input id="departure-to" type="date" required></label>
+      <label>검색 날짜 간격 <select id="step-days"><option value="1">매일</option><option value="3">3일</option><option value="7" selected>7일</option></select></label>
+      <small>위 날짜 범위는 첫 여행의 출발 가능 기간이며 귀국일이 아닙니다. 한국 체류일은 실제 인천 도착일로 다시 계산합니다. 변경한 조건은 다음 검색에 적용됩니다.</small>
+    </fieldset>
+  </form>
+
+  <p id="search-error" role="alert" hidden></p>
+  <div class="strip" id="strip">
+    <span class="chip" id="state-chip">상태 확인 중</span>
+    <div class="bar" id="bar" hidden><span id="bar-fill"></span></div>
+    <span class="strip-text" id="state-text" role="status" aria-live="polite"></span>
+    <button type="button" id="pause" disabled>수집 일시정지</button>
+  </div>
+
+  <div class="layout">
+    <aside class="filters" aria-label="필터">
+      <div class="map-card"><strong>인천에서 시작해서<br>인천으로 끝나는 여정</strong><span>① 인천→A (1월) … A→인천 (5월)<br>② A→인천 (1월) … 인천→A (4월)</span></div>
+      <section><h3>조건</h3>
+        <label><input type="checkbox" id="f-seats" checked>30분 이내 좌석 조회 결과만</label>
+        <label><input type="checkbox" id="f-cheaper">왕복 두 장보다 싼 것만</label>
+      </section>
+      <section><h3>여행지 지역</h3><div id="f-regions"></div></section>
+      <section><h3>한국 체류</h3>
+        <label><input type="checkbox" name="stay" value="90-100" checked>90~100일</label>
+        <label><input type="checkbox" name="stay" value="101-110" checked>101~110일</label>
+        <label><input type="checkbox" name="stay" value="111-120" checked>111~120일</label>
+      </section>
+      <section><h3>연결 발권 총액</h3>
+        <input type="range" id="f-price" min="0" max="10000000" step="100000" value="10000000"><div class="range-label"><span>0원</span><span id="f-price-label">제한 없음</span></div>
+      </section>
+      <section><h3>도시 검색</h3><input type="search" id="f-city" placeholder="예: 방콕, BKK"></section>
+    </aside>
+
+    <section class="results">
+      <div class="results-head"><h2 id="result-title">연결 여정 검색 결과</h2>
+        <label class="sort">보기 <select id="view"><option value="pairs">변태발권 결과</option><option value="cities">전체 도시 표</option></select></label>
+        <label class="sort">⇅ <select id="sort"><option value="saving">절약액 큰 순</option><option value="connected">변태발권 총액 낮은 순</option><option value="date">출국일 빠른 순</option></select></label>
+      </div>
+      <div id="cards"></div>
+      <button type="button" id="more" class="more" hidden>더 보기</button>
+    </section>
+  </div>
+</main>
+<footer class="wrap foot">개인용 탐색 도구 · 대한항공 공식 서비스 아님 · 표시 가격은 조회 시각 기준이며 구매 전 대한항공에서 다시 확인하세요.</footer>
+</body></html>
