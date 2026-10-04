@@ -6,3 +6,11 @@ export function el(tag,props={},...children){
   return node;
 }
 export const won=n=>Number.isFinite(n)?n.toLocaleString('ko-KR')+'원':'-';
+// Korean Air's own deep link: fills route, dates, passengers and cabin on the search form (round trip or one way only).
+// bookingType A (mileage) and upgradeSeat=Y ask for login first. Multi-city cannot be prefilled.
+export function koreanAirLink({type='R',trip,from,to,date,ret,adults=1,cabin='economy',upgrade=false}){
+  const q=new URLSearchParams({bookingType:type,tripType:trip,departure:from,arrival:to,departureDate:date,adults:String(adults),cabinClass:cabin});
+  if(ret)q.set('returnDate',ret);
+  if(upgrade){q.set('upgradeSeat','Y');q.set('isUpgradeableCabin','true');}
+  return 'https://www.koreanair.com/booking/search?'+q;
+}

@@ -102,3 +102,7 @@ button,input,select{font:inherit;color:inherit}
 .d.peak{background:#fff1e6;color:#c2410c}
 @media (prefers-color-scheme:dark){.d.peak{background:#3b2414;color:#fdba74}}
 .route{grid-template-columns:190px 150px minmax(0,1fr) 60px}
+
+a.d{text-decoration:none}a.d:hover{outline:1px solid var(--blue)}
+.links{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.links small{color:var(--muted)}

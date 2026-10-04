@@ -1,5 +1,5 @@
 // 변태발권 survey: data/stayover.json from STAYOVER (cities[] same city both trips, pairs[] first trip code → second trip cityB).
-import {el,won} from './ui.js?v=20261004e';
+import {el,won,koreanAirLink} from './ui.js?v=20261004f';
 
 const NAMES={NRT:'도쿄 나리타',HND:'도쿄 하네다',KIX:'오사카',NGO:'나고야',FUK:'후쿠오카',CTS:'삿포로',OKA:'오키나와',KOJ:'가고시마',KMQ:'고마쓰',OKJ:'오카야마',KIJ:'니가타',AOJ:'아오모리',
   PEK:'베이징',PVG:'상하이',CAN:'광저우',SZX:'선전',TAO:'칭다오',SHE:'선양',DLC:'다롄',XMN:'샤먼',TSN:'톈진',XIY:'시안',WEH:'웨이하이',YNJ:'옌지',CKG:'충칭',NKG:'난징',TPE:'타이베이',KHH:'가오슝',HKG:'홍콩',MFM:'마카오',UBN:'울란바토르',
@@ -55,7 +55,11 @@ function row(c,people,open,toggle){
       el('li',{},`② ${name(A)}→인천 ${md(b.dates[1])} / 인천→${name(B)} ${md(b.dates[2])} (${name(A)} 출발 왕복) · ${won(t.inner)}`),
       el('li',{className:'muted'},`일반: ${name(A)} 왕복 ${won(t.rtA)} + ${name(B)} 왕복 ${won(t.rtB)} · 조회 ${when(c.observedAt)}`)),
     el('details',{className:'guide'},el('summary',{},'예매 방법 보기'),pre,copy),
-    el('a',{className:'cta',href:'https://www.koreanair.com/booking/search',target:'_blank',rel:'noopener'},'대한항공 예매 열기')));
+    same?el('div',{className:'links'},
+      el('a',{className:'cta',href:koreanAirLink({trip:'RT',from:'ICN',to:A,date:b.dates[0],ret:b.dates[3],adults:people}),target:'_blank',rel:'noopener'},'표① 예매 열기 (입력 완료)'),
+      el('a',{className:'cta',href:koreanAirLink({trip:'RT',from:A,to:'ICN',date:b.dates[1],ret:b.dates[2],adults:people}),target:'_blank',rel:'noopener'},'표② 예매 열기 (입력 완료)'))
+    :el('div',{className:'links'},el('a',{className:'cta',href:'https://www.koreanair.com/booking/search',target:'_blank',rel:'noopener'},'대한항공 예매 열기'),
+      el('small',{},' 다른 도시 조합은 다구간이라 대한항공이 미리 채운 링크를 지원하지 않습니다. 위 예매 방법대로 입력하세요.'))));
   return [tr,detail];
 }
 
