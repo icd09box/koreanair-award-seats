@@ -14,15 +14,19 @@ export function mount(root,data){
   const updated=new Date(data.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});
   root.append(el('div',{className:'head'},el('h1',{},'대한항공 마일리지 빈자리'),el('p',{},`장거리 보너스 좌석(편도) · 대한항공 ${updated} 조회 기준 · 날짜에 마우스를 올리면 편명`)));
 
-  const cabinChips=el('div',{className:'chips'}),areaChips=el('div',{className:'chips'});
+  // Seat class is single-choice (segmented), regions are multi-choice chips; each sits in its own labelled group.
+  const cabinChips=el('div',{className:'segmented',role:'radiogroup'}),areaChips=el('div',{className:'chips'});
   const search=el('input',{type:'search',placeholder:'도시·공항 검색'});
-  root.append(el('div',{className:'bar'},cabinChips,areaChips,search));
+  root.append(el('div',{className:'bar grouped'},
+    el('div',{className:'group'},el('span',{className:'group-label'},'좌석 등급'),cabinChips),
+    el('div',{className:'group'},el('span',{className:'group-label'},'지역'),areaChips),
+    el('div',{className:'group grow'},el('span',{className:'group-label'},'검색'),search)));
   const count=el('p',{className:'count'}),list=el('div',{className:'routes'});
   root.append(count,list);
 
   const chip=(label,on,toggle)=>{const b=el('button',{type:'button',className:'chip'},label);b.setAttribute('aria-pressed',on);b.onclick=toggle;return b;};
   function render(){
-    cabinChips.replaceChildren(...cabins.map(c=>chip(CABIN[c]||c,ui.cabin===c,()=>{ui.cabin=c;render();})));
+    cabinChips.replaceChildren(...cabins.map(c=>{const b=el('button',{type:'button',role:'radio'},CABIN[c]||c);b.setAttribute('aria-checked',ui.cabin===c);b.onclick=()=>{ui.cabin=c;render();};return b;}));
     areaChips.replaceChildren(...areas.map(a=>chip(AREA[a]||a,ui.areas.has(a),()=>{ui.areas.has(a)?ui.areas.delete(a):ui.areas.add(a);render();})));
     const term=ui.term.trim().toLowerCase();
     const rows=data.routes.filter(r=>r.cabin===ui.cabin&&ui.areas.has(r.area)&&(!term||[r.dep,r.arr,r.name].join(' ').toLowerCase().includes(term)));

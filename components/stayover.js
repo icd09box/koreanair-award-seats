@@ -35,46 +35,53 @@ function guideText(c,people){
     `  · 일반 왕복 두 번 ${won(b.baseline)} 대비 ${b.saving>0?won(b.saving)+' 절약':won(-b.saving)+' 더 비쌈'} (조회 ${when(c.observedAt)} 기준, 결제 전 재확인)`].join('\n');
 }
 
-function card(c,people){
+// Explorer-style row; clicking it opens the tickets, booking guide and link underneath.
+function row(c,people,open,toggle){
   const b=c.best,t=b.parts,A=c.code,B=c.cityB||A,same=A===B;
+  const tr=el('tr',{className:'item'+(open?' open':''),tabIndex:0},
+    el('td',{className:'name'},el('span',{className:'icon'+(same?'':' pair')},same?'●':'⇄'),el('span',{},same?name(A):`${name(A)} → ${name(B)}`),el('small',{},same?' 같은 도시':' 다른 도시')),
+    el('td',{},`${md(b.dates[0])} 출국 · ${md(b.dates[3])} 귀국`),
+    el('td',{className:'num'},b.stay+'일'),
+    el('td',{className:'num strong'},won(b.hack)),
+    el('td',{className:'num muted'},won(b.baseline)),
+    el('td',{className:'num'},el('span',{className:'save'+(b.saving>0?'':' worse')},b.saving>0?`${won(b.saving)} (${Math.round(b.saving/b.baseline*100)}%)`:won(-b.saving)+' 비쌈')));
+  tr.onclick=toggle;tr.onkeydown=e=>{if(e.key==='Enter')toggle();};
+  if(!open)return [tr];
   const pre=el('pre',{},guideText(c,people)),copy=el('button',{type:'button'},'예매 안내 복사');
-  copy.onclick=async()=>{try{await navigator.clipboard.writeText(pre.textContent);copy.textContent='복사했습니다';}catch{copy.textContent='길게 눌러 선택해 복사하세요';}setTimeout(()=>copy.textContent='예매 안내 복사',2500);};
-  return el('article',{className:'card'},
-    el('div',{className:'visual',style:`background:${b.saving>0?'var(--hack)':'var(--plain)'}`},el('div',{className:'codes'},same?A:`${A} → ${B}`),el('div',{className:'route-name'},`${same?name(A):name(A)+' → '+name(B)} · 한국 ${b.stay}일`)),
-    el('div',{className:'info'},
-      el('h3',{},`${same?name(A):name(A)+' + '+name(B)} 변태발권`),
-      el('p',{className:'sub'},`${md(b.dates[0])} ${name(A)} 출국 · ${md(b.dates[1])} 귀국 → 한국 ${b.stay}일 → ${md(b.dates[2])} ${name(B)} 출국 · ${md(b.dates[3])} 귀국`),
-      el('span',{className:'badge'+(b.saving>0?'':' worse')},b.saving>0?won(b.saving)+' 절약':won(-b.saving)+' 더 비쌈'),
-      el('ul',{className:'tickets'},
-        el('li',{},`① 인천→${name(A)} ${md(b.dates[0])} / ${name(B)}→인천 ${md(b.dates[3])} (인천 출발 장기 왕복) · ${won(t.outer)}`),
-        el('li',{},`② ${name(A)}→인천 ${md(b.dates[1])} / 인천→${name(B)} ${md(b.dates[2])} (${name(A)} 출발 왕복) · ${won(t.inner)}`))),
-    el('div',{className:'price'},
-      b.saving>0&&el('span',{className:'tag'},Math.round(b.saving/b.baseline*100)+'% 절약'),
-      el('span',{className:'small'},'변태발권 왕복 2장'),el('strong',{className:'big'},won(b.hack)),el('s',{},won(b.baseline)),
-      el('span',{className:'small'},`일반 왕복 두 번 (${won(t.rtA)} + ${won(t.rtB)})`),el('span',{className:'small'},'조회 '+when(c.observedAt)),
-      el('a',{className:'cta',href:'https://www.koreanair.com/booking/search',target:'_blank',rel:'noopener'},'대한항공 예매 열기')),
-    el('details',{className:'guide'},el('summary',{},'예매 방법 보기 (표 2장 입력값과 탑승 순서)'),pre,copy));
+  copy.onclick=async e=>{e.stopPropagation();try{await navigator.clipboard.writeText(pre.textContent);copy.textContent='복사했습니다';}catch{copy.textContent='길게 눌러 선택해 복사하세요';}setTimeout(()=>copy.textContent='예매 안내 복사',2500);};
+  const detail=el('tr',{className:'detail'},el('td',{colSpan:6},
+    el('ul',{className:'tickets'},
+      el('li',{},`① 인천→${name(A)} ${md(b.dates[0])} / ${name(B)}→인천 ${md(b.dates[3])} (인천 출발 장기 왕복) · ${won(t.outer)}`),
+      el('li',{},`② ${name(A)}→인천 ${md(b.dates[1])} / 인천→${name(B)} ${md(b.dates[2])} (${name(A)} 출발 왕복) · ${won(t.inner)}`),
+      el('li',{className:'muted'},`일반: ${name(A)} 왕복 ${won(t.rtA)} + ${name(B)} 왕복 ${won(t.rtB)} · 조회 ${when(c.observedAt)}`)),
+    el('details',{className:'guide'},el('summary',{},'예매 방법 보기'),pre,copy),
+    el('a',{className:'cta',href:'https://www.koreanair.com/booking/search',target:'_blank',rel:'noopener'},'대한항공 예매 열기')));
+  return [tr,detail];
 }
 
 export function mount(root,data){
   const p=data.state?.progress||{},people=data.job?.settings?.people||1,regions=Object.keys(GROUPS).concat('기타');
-  const ui={view:'results',cheaper:true,sort:'saving',regions:new Set(regions),term:'',limit:20};
+  const ui={view:'results',cheaper:true,regions:new Set(regions),term:''};
   root.append(el('div',{className:'head'},el('h1',{},`변태발권 조사 · ${data.job?.month||''} 출국`),
     el('p',{},`도시 ${p.citiesDone??0}/${p.cities??0}곳 조사 · 같은 도시 싸지는 곳 ${p.cheaper??0}곳 · 다른 도시 조합 ${p.pairsChecked??0}건 중 ${p.pairsCheaper??0}건 · ${when(data.generatedAt)} 갱신 (새벽 자동 수집)`)));
 
   const viewSel=el('select',{},el('option',{value:'results'},'변태발권 결과'),el('option',{value:'cities'},'전체 도시 표'));
-  const sortSel=el('select',{},el('option',{value:'saving'},'절약액 큰 순'),el('option',{value:'hack'},'변태발권 총액 낮은 순'),el('option',{value:'date'},'출국일 빠른 순'));
   const cheaper=el('input',{type:'checkbox',checked:true}),search=el('input',{type:'search',placeholder:'도시 검색'}),chips=el('div',{className:'chips'});
-  root.append(el('div',{className:'bar'},el('label',{},'보기 ',viewSel),el('label',{},'정렬 ',sortSel),el('label',{},cheaper,'싸지는 것만'),search,chips));
-  const count=el('p',{className:'count'}),list=el('div',{}),more=el('button',{type:'button',className:'more'},'더 보기');
-  root.append(count,list,more);
+  root.append(el('div',{className:'bar grouped'},
+    el('div',{className:'group'},el('span',{className:'group-label'},'보기'),viewSel),
+    el('div',{className:'group'},el('span',{className:'group-label'},'조건'),el('label',{},cheaper,'싸지는 것만')),
+    el('div',{className:'group'},el('span',{className:'group-label'},'지역'),chips),
+    el('div',{className:'group grow'},el('span',{className:'group-label'},'검색'),search)));
+  const count=el('p',{className:'count'}),list=el('div',{});
+  root.append(count,list);
+  ui.sort={key:'saving',desc:true};ui.open=null;ui.closed=new Set();
 
   const match=c=>(ui.regions.has(region(c.code))||(c.cityB&&ui.regions.has(region(c.cityB))))&&(!ui.term||[c.code,c.cityB||'',name(c.code),name(c.cityB||c.code)].join(' ').toLowerCase().includes(ui.term));
   function render(){
     chips.replaceChildren(...regions.map(r=>{const b=el('button',{type:'button',className:'chip'},r);b.setAttribute('aria-pressed',ui.regions.has(r));b.onclick=()=>{ui.regions.has(r)?ui.regions.delete(r):ui.regions.add(r);render();};return b;}));
     if(ui.view==='cities'){
       const rows=(data.cities||[]).filter(match).sort((a,b)=>(b.best?.saving??-Infinity)-(a.best?.saving??-Infinity));
-      count.textContent=`도시 ${rows.length}곳`;more.hidden=true;
+      count.textContent=`도시 ${rows.length}곳`;
       list.replaceChildren(el('div',{className:'table-wrap'},el('table',{className:'table'},
         el('tr',{},...['도시','지역','1월 최저 왕복','변태발권','일반 왕복 두 번','차이','상태'].map(h=>el('th',{},h))),
         ...rows.map(c=>{const b=c.best,f=c.cheapestFirstTrip;return el('tr',{className:c.done?'':'pending'},el('td',{},`${name(c.code)} ${c.code}`),el('td',{},region(c.code)),
@@ -82,14 +89,27 @@ export function mount(root,data){
           el('td',{className:'num'},b?(b.saving>0?won(b.saving)+' 절약':won(-b.saving)+' 비쌈'):'-'),el('td',{},c.done?(c.reason||'완료'):'조사 중'));}))));
       return;
     }
-    const sorters={saving:(a,b)=>b.best.saving-a.best.saving,hack:(a,b)=>a.best.hack-b.best.hack,date:(a,b)=>a.best.dates[0].localeCompare(b.best.dates[0])};
-    const rows=[...(data.cities||[]),...(data.pairs||[])].filter(c=>c.best&&(!ui.cheaper||c.best.saving>0)&&match(c)).sort(sorters[ui.sort]);
-    count.textContent=`${rows.length}건 (같은 도시 ${rows.filter(c=>!c.cityB).length} · 다른 도시 조합 ${rows.filter(c=>c.cityB).length})`;
-    list.replaceChildren(...(rows.length?rows.slice(0,ui.limit).map(c=>card(c,people)):[el('p',{className:'empty'},'조건에 맞는 결과가 아직 없습니다.')]));
-    more.hidden=rows.length<=ui.limit;
+    const cols=[['name','여정'],['date','일정'],['stay','체류'],['hack','변태발권'],['baseline','일반 왕복 두 번'],['saving','절약']];
+    const val={name:c=>name(c.code)+(c.cityB||''),date:c=>c.best.dates[0],stay:c=>c.best.stay,hack:c=>c.best.hack,baseline:c=>c.best.baseline,saving:c=>c.best.saving};
+    const k=ui.sort.key,dir=ui.sort.desc?-1:1,cmp=(a,b)=>{const x=val[k](a),y=val[k](b);return (x<y?-1:x>y?1:0)*dir;};
+    const rows=[...(data.cities||[]),...(data.pairs||[])].filter(c=>c.best&&(!ui.cheaper||c.best.saving>0)&&match(c)).sort(cmp);
+    count.textContent=`${rows.length}건 (같은 도시 ${rows.filter(c=>!c.cityB).length} · 다른 도시 조합 ${rows.filter(c=>c.cityB).length}) · 행을 누르면 표 2장과 예매 방법이 펼쳐집니다`;
+    if(!rows.length){list.replaceChildren(el('p',{className:'empty'},'조건에 맞는 결과가 아직 없습니다.'));return;}
+    const head=el('tr',{},...cols.map(([key,label])=>{const th=el('th',{className:['stay','hack','baseline','saving'].includes(key)?'num':''},label+(k===key?(ui.sort.desc?' ▾':' ▴'):''));
+      th.onclick=()=>{ui.sort=k===key?{key,desc:!ui.sort.desc}:{key,desc:['saving','stay'].includes(key)};render();};return th;}));
+    const body=[];
+    // Explorer-like sections by region of the first trip, each collapsible.
+    for(const g of regions){
+      const inGroup=rows.filter(c=>region(c.code)===g);if(!inGroup.length)continue;
+      const closed=ui.closed.has(g);
+      const h=el('tr',{className:'section'},el('td',{colSpan:6},`${closed?'▸':'▾'} ${g}`,el('small',{},` ${inGroup.length}건 · 최대 ${won(Math.max(...inGroup.map(c=>c.best.saving)))} 절약`)));
+      h.onclick=()=>{closed?ui.closed.delete(g):ui.closed.add(g);render();};body.push(h);
+      if(closed)continue;
+      for(const c of inGroup){const id=c.code+'>'+(c.cityB||c.code);body.push(...row(c,people,ui.open===id,()=>{ui.open=ui.open===id?null:id;render();}));}
+    }
+    list.replaceChildren(el('div',{className:'table-wrap'},el('table',{className:'files'},el('thead',{},head),el('tbody',{},...body))));
   }
-  viewSel.onchange=()=>{ui.view=viewSel.value;render();};sortSel.onchange=()=>{ui.sort=sortSel.value;ui.limit=20;render();};
-  cheaper.onchange=()=>{ui.cheaper=cheaper.checked;ui.limit=20;render();};search.oninput=()=>{ui.term=search.value.trim().toLowerCase();ui.limit=20;render();};
-  more.onclick=()=>{ui.limit+=20;render();};
+  viewSel.onchange=()=>{ui.view=viewSel.value;render();};
+  cheaper.onchange=()=>{ui.cheaper=cheaper.checked;render();};search.oninput=()=>{ui.term=search.value.trim().toLowerCase();render();};
   render();
 }
