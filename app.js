@@ -1,7 +1,7 @@
 // Bump ?v= in index.html, app.js and the component imports on every change: Pages lets browsers cache files for 10 minutes.
 // App shell: hash tabs, each tab is a component module with mount(root, data) and its own data file.
-import * as award from './components/award.js?v=20261004c';
-import * as stayover from './components/stayover.js?v=20261004c';
+import * as award from './components/award.js?v=20261004d';
+import * as stayover from './components/stayover.js?v=20261004d';
 
 const TABS={award:{component:award,data:'data/award.json'},stayover:{component:stayover,data:'data/stayover.json'}};
 const cache={};

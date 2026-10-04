@@ -1,5 +1,5 @@
 // 변태발권 survey: data/stayover.json from STAYOVER (cities[] same city both trips, pairs[] first trip code → second trip cityB).
-import {el,won} from './ui.js?v=20261004c';
+import {el,won} from './ui.js?v=20261004d';
 
 const NAMES={NRT:'도쿄 나리타',HND:'도쿄 하네다',KIX:'오사카',NGO:'나고야',FUK:'후쿠오카',CTS:'삿포로',OKA:'오키나와',KOJ:'가고시마',KMQ:'고마쓰',OKJ:'오카야마',KIJ:'니가타',AOJ:'아오모리',
   PEK:'베이징',PVG:'상하이',CAN:'광저우',SZX:'선전',TAO:'칭다오',SHE:'선양',DLC:'다롄',XMN:'샤먼',TSN:'톈진',XIY:'시안',WEH:'웨이하이',YNJ:'옌지',CKG:'충칭',NKG:'난징',TPE:'타이베이',KHH:'가오슝',HKG:'홍콩',MFM:'마카오',UBN:'울란바토르',
@@ -61,14 +61,20 @@ function row(c,people,open,toggle){
 
 export function mount(root,data){
   const p=data.state?.progress||{},people=data.job?.settings?.people||1,regions=Object.keys(GROUPS).concat('기타');
-  const ui={view:'results',cheaper:true,regions:new Set(regions),term:''};
+  const ui={view:'results',cheaper:true,regions:new Set(regions),term:'',kind:'all',max:Infinity,stay:'all'};
   root.append(el('div',{className:'head'},el('h1',{},`변태발권 조사 · ${data.job?.month||''} 출국`),
     el('p',{},`도시 ${p.citiesDone??0}/${p.cities??0}곳 조사 · 같은 도시 싸지는 곳 ${p.cheaper??0}곳 · 다른 도시 조합 ${p.pairsChecked??0}건 중 ${p.pairsCheaper??0}건 · ${when(data.generatedAt)} 갱신 (새벽 자동 수집)`)));
 
   const viewSel=el('select',{},el('option',{value:'results'},'변태발권 결과'),el('option',{value:'cities'},'전체 도시 표'));
+  const kinds=[['all','전체'],['same','같은 도시'],['pair','다른 도시']],kindSeg=el('div',{className:'segmented',role:'radiogroup'});
+  const priceSel=el('select',{},...[['','제한 없음'],[1000000,'100만 원 이하'],[2000000,'200만 원 이하'],[3000000,'300만 원 이하'],[4000000,'400만 원 이하'],[5000000,'500만 원 이하']].map(([v,t])=>el('option',{value:v},t)));
+  const staySel=el('select',{},...[['all','전체'],['90-100','90~100일'],['101-110','101~110일'],['111-120','111~120일']].map(([v,t])=>el('option',{value:v},t)));
   const cheaper=el('input',{type:'checkbox',checked:true}),search=el('input',{type:'search',placeholder:'도시 검색'}),chips=el('div',{className:'chips'});
   root.append(el('div',{className:'bar grouped'},
     el('div',{className:'group'},el('span',{className:'group-label'},'보기'),viewSel),
+    el('div',{className:'group'},el('span',{className:'group-label'},'종류'),kindSeg),
+    el('div',{className:'group'},el('span',{className:'group-label'},'변태발권 가격대'),priceSel),
+    el('div',{className:'group'},el('span',{className:'group-label'},'한국 체류'),staySel),
     el('div',{className:'group'},el('span',{className:'group-label'},'조건'),el('label',{},cheaper,'싸지는 것만')),
     el('div',{className:'group'},el('span',{className:'group-label'},'지역'),chips),
     el('div',{className:'group grow'},el('span',{className:'group-label'},'검색'),search)));
@@ -78,6 +84,7 @@ export function mount(root,data){
 
   const match=c=>(ui.regions.has(region(c.code))||(c.cityB&&ui.regions.has(region(c.cityB))))&&(!ui.term||[c.code,c.cityB||'',name(c.code),name(c.cityB||c.code)].join(' ').toLowerCase().includes(ui.term));
   function render(){
+    kindSeg.replaceChildren(...kinds.map(([v,t])=>{const b=el('button',{type:'button',role:'radio'},t);b.setAttribute('aria-checked',ui.kind===v);b.onclick=()=>{ui.kind=v;render();};return b;}));
     chips.replaceChildren(...regions.map(r=>{const b=el('button',{type:'button',className:'chip'},r);b.setAttribute('aria-pressed',ui.regions.has(r));b.onclick=()=>{ui.regions.has(r)?ui.regions.delete(r):ui.regions.add(r);render();};return b;}));
     if(ui.view==='cities'){
       const rows=(data.cities||[]).filter(match).sort((a,b)=>(b.best?.saving??-Infinity)-(a.best?.saving??-Infinity));
@@ -92,7 +99,9 @@ export function mount(root,data){
     const cols=[['name','여정'],['date','일정'],['stay','체류'],['hack','변태발권'],['baseline','일반 왕복 두 번'],['saving','절약']];
     const val={name:c=>name(c.code)+(c.cityB||''),date:c=>c.best.dates[0],stay:c=>c.best.stay,hack:c=>c.best.hack,baseline:c=>c.best.baseline,saving:c=>c.best.saving};
     const k=ui.sort.key,dir=ui.sort.desc?-1:1,cmp=(a,b)=>{const x=val[k](a),y=val[k](b);return (x<y?-1:x>y?1:0)*dir;};
-    const rows=[...(data.cities||[]),...(data.pairs||[])].filter(c=>c.best&&(!ui.cheaper||c.best.saving>0)&&match(c)).sort(cmp);
+    const [s0,s1]=ui.stay==='all'?[0,999]:ui.stay.split('-').map(Number);
+    const rows=[...(data.cities||[]),...(data.pairs||[])].filter(c=>c.best&&(!ui.cheaper||c.best.saving>0)&&match(c)
+      &&(ui.kind==='all'||(ui.kind==='pair')===!!c.cityB)&&c.best.hack<=ui.max&&c.best.stay>=s0&&c.best.stay<=s1).sort(cmp);
     count.textContent=`${rows.length}건 (같은 도시 ${rows.filter(c=>!c.cityB).length} · 다른 도시 조합 ${rows.filter(c=>c.cityB).length}) · 행을 누르면 표 2장과 예매 방법이 펼쳐집니다`;
     if(!rows.length){list.replaceChildren(el('p',{className:'empty'},'조건에 맞는 결과가 아직 없습니다.'));return;}
     const head=el('tr',{},...cols.map(([key,label])=>{const th=el('th',{className:['stay','hack','baseline','saving'].includes(key)?'num':''},label+(k===key?(ui.sort.desc?' ▾':' ▴'):''));
@@ -110,6 +119,7 @@ export function mount(root,data){
     list.replaceChildren(el('div',{className:'table-wrap'},el('table',{className:'files'},el('thead',{},head),el('tbody',{},...body))));
   }
   viewSel.onchange=()=>{ui.view=viewSel.value;render();};
+  priceSel.onchange=()=>{ui.max=priceSel.value?Number(priceSel.value):Infinity;render();};staySel.onchange=()=>{ui.stay=staySel.value;render();};
   cheaper.onchange=()=>{ui.cheaper=cheaper.checked;render();};search.oninput=()=>{ui.term=search.value.trim().toLowerCase();render();};
   render();
 }
