@@ -96,3 +96,9 @@ button,input,select{font:inherit;color:inherit}
 .files tr.detail .tickets li{padding:2px 0}.files tr.detail .muted{color:var(--muted)}
 .files tr.detail .guide{border:0;padding:6px 0}
 .files tr.detail .cta{display:inline-block;margin-top:4px}
+
+.route .n b{display:block;color:var(--ink);font-size:13px}.route .n small{display:block}
+.d em{font-style:normal;font-weight:700;margin-left:2px}
+.d.peak{background:#fff1e6;color:#c2410c}
+@media (prefers-color-scheme:dark){.d.peak{background:#3b2414;color:#fdba74}}
+.route{grid-template-columns:190px 150px minmax(0,1fr) 60px}
