@@ -1,6 +1,6 @@
 // Mileage award seats: data/award.json (koreanair-award-alert) + data/fares.json (STAYOVER weekly approximate fares).
 // Won per mile = (one-way cash fare without taxes) ÷ required miles; taxes and fuel surcharge are paid on award tickets too.
-import {el,won,koreanAirLink} from './ui.js?v=20261004f';
+import {el,won,koreanAirLink} from './ui.js?v=20261004g';
 
 const CABIN={F:'일등석',P:'프레스티지',E:'일반석'};
 const AREA={AME:'미주',EUR:'유럽',OCN:'대양주',EAA:'일본·중국',SEA:'동남아',CIS:'몽골'};
@@ -22,16 +22,19 @@ function isPeak(peak,dep,date){
 // Rough fare: the collected calendar date closest to the seat date, within 20 days.
 function nearFare(map,date){
   let best=null,gap=Infinity;
-  for(const [d,v] of Object.entries(map||{})){const g=Math.abs(Date.parse(d)-Date.parse(date));if(g<gap){gap=g;best=v;}}
+  for(const [d,v] of Object.entries(map||{})){const g=Math.abs(Date.parse(d)-Date.parse(date));if(g<gap){gap=g;best={...v,date:d};}}
   return gap<=20*86400000?best:null;
 }
 function valueOf(fares,route,cabin,date,mode){
   const zone=ZONE[route.area]||'LONG',peak=isPeak(fares?.peak,route.dep,date);
   const miles=(mode==='award'?AWARD:UPGRADE)[cabin]?.[zone]?.[peak?1:0];
   const r=fares?.routes?.[route.dep+'-'+route.arr];
-  const [top,from]=FARE[mode][cabin].map(c=>nearFare(r?.[c],date));
+  const [topCabin,fromCabin]=FARE[mode][cabin],top=nearFare(r?.[topCabin],date);
+  // Upgrade compares both cabins on the same calendar date when possible.
+  const from=fromCabin&&top?(r?.[fromCabin]?.[top.date]?{...r[fromCabin][top.date],date:top.date}:nearFare(r?.[fromCabin],date)):null;
   if(!miles||!top||(mode==='upgrade'&&!from))return {miles,peak,value:null};
   const cash=top.base-(mode==='upgrade'?from.base:0);
+  if(cash<=0)return {miles,peak,value:null};
   return {miles,peak,cash,buy:mode==='upgrade'?from.total:null,value:cash/miles};
 }
 

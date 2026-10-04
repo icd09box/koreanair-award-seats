@@ -1,5 +1,5 @@
 // 변태발권 survey: data/stayover.json from STAYOVER (cities[] same city both trips, pairs[] first trip code → second trip cityB).
-import {el,won,koreanAirLink} from './ui.js?v=20261004f';
+import {el,won,koreanAirLink} from './ui.js?v=20261004g';
 
 const NAMES={NRT:'도쿄 나리타',HND:'도쿄 하네다',KIX:'오사카',NGO:'나고야',FUK:'후쿠오카',CTS:'삿포로',OKA:'오키나와',KOJ:'가고시마',KMQ:'고마쓰',OKJ:'오카야마',KIJ:'니가타',AOJ:'아오모리',
   PEK:'베이징',PVG:'상하이',CAN:'광저우',SZX:'선전',TAO:'칭다오',SHE:'선양',DLC:'다롄',XMN:'샤먼',TSN:'톈진',XIY:'시안',WEH:'웨이하이',YNJ:'옌지',CKG:'충칭',NKG:'난징',TPE:'타이베이',KHH:'가오슝',HKG:'홍콩',MFM:'마카오',UBN:'울란바토르',
@@ -94,7 +94,7 @@ export function mount(root,data){
       const rows=(data.cities||[]).filter(match).sort((a,b)=>(b.best?.saving??-Infinity)-(a.best?.saving??-Infinity));
       count.textContent=`도시 ${rows.length}곳`;
       list.replaceChildren(el('div',{className:'table-wrap'},el('table',{className:'table'},
-        el('tr',{},...['도시','지역','1월 최저 왕복','변태발권','일반 왕복 두 번','차이','상태'].map(h=>el('th',{},h))),
+        el('tr',{},...['도시','지역',`${Number((data.job?.month||'-01').slice(-2))}월 최저 왕복`,'변태발권','일반 왕복 두 번','차이','상태'].map(h=>el('th',{},h))),
         ...rows.map(c=>{const b=c.best,f=c.cheapestFirstTrip;return el('tr',{className:c.done?'':'pending'},el('td',{},`${name(c.code)} ${c.code}`),el('td',{},region(c.code)),
           el('td',{className:'num'},f?`${won(f.price)} (${md(f.dates[0])}~${md(f.dates[1])})`:'-'),el('td',{className:'num'},b?won(b.hack):'-'),el('td',{className:'num'},b?won(b.baseline):'-'),
           el('td',{className:'num'},b?(b.saving>0?won(b.saving)+' 절약':won(-b.saving)+' 비쌈'):'-'),el('td',{},c.done?(c.reason||'완료'):'조사 중'));}))));

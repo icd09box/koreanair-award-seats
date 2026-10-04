@@ -1,7 +1,7 @@
 // Bump ?v= in index.html, app.js and the component imports on every change: Pages lets browsers cache files for 10 minutes.
 // App shell: hash tabs, each tab is a component module with mount(root, data) and its own data file.
-import * as award from './components/award.js?v=20261004f';
-import * as stayover from './components/stayover.js?v=20261004f';
+import * as award from './components/award.js?v=20261004g';
+import * as stayover from './components/stayover.js?v=20261004g';
 
 // data: required file first, then optional extras (missing extras are passed as null).
 const TABS={award:{component:award,data:['data/award.json','data/fares.json']},stayover:{component:stayover,data:['data/stayover.json']}};
@@ -13,7 +13,7 @@ async function show(){
   const root=document.getElementById('view'),tab=TABS[name];
   root.replaceChildren(Object.assign(document.createElement('p'),{className:'empty',textContent:'불러오는 중…'}));
   try{
-    const get=(f,required)=>fetch(f+'?t='+Date.now()).then(r=>{if(r.ok)return r.json();if(required)throw new Error('데이터가 아직 없습니다 ('+r.status+')');return null;});
+    const get=(f,required)=>fetch(f+'?t='+Date.now()).then(r=>{if(r.ok)return r.json();if(required)throw new Error('데이터가 아직 없습니다 ('+r.status+')');return null;}).catch(e=>{if(required)throw e;return null;});
     cache[name]??=await Promise.all(tab.data.map((f,i)=>get(f,i===0)));
     root.replaceChildren();
     tab.component.mount(root,...cache[name]);
