@@ -106,3 +106,5 @@ button,input,select{font:inherit;color:inherit}
 a.d{text-decoration:none}a.d:hover{outline:1px solid var(--blue)}
 .links{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
 .links small{color:var(--muted)}
+
+.route .cost{grid-column:1/-1;font-size:13px;color:var(--ink);background:var(--soft);border-radius:6px;padding:6px 10px;margin-top:-2px}

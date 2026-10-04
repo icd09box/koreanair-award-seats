@@ -1,6 +1,6 @@
 // Mileage award seats: data/award.json (koreanair-award-alert) + data/fares.json (STAYOVER weekly approximate fares).
 // Won per mile = (one-way cash fare without taxes) ÷ required miles; taxes and fuel surcharge are paid on award tickets too.
-import {el,won,koreanAirLink} from './ui.js?v=20261004g';
+import {el,won,koreanAirLink} from './ui.js?v=20261004h';
 
 const CABIN={F:'일등석',P:'프레스티지',E:'일반석'};
 const AREA={AME:'미주',EUR:'유럽',OCN:'대양주',EAA:'일본·중국',SEA:'동남아',CIS:'몽골'};
@@ -35,7 +35,8 @@ function valueOf(fares,route,cabin,date,mode){
   if(!miles||!top||(mode==='upgrade'&&!from))return {miles,peak,value:null};
   const cash=top.base-(mode==='upgrade'?from.base:0);
   if(cash<=0)return {miles,peak,value:null};
-  return {miles,peak,cash,buy:mode==='upgrade'?from.total:null,value:cash/miles};
+  // fare: what the seat costs in cash; tax: taxes and surcharge still paid on an award ticket (rough, from the cash fare).
+  return {miles,peak,cash,fare:top.total,tax:top.total-top.base,buy:mode==='upgrade'?from.total:null,value:cash/miles};
 }
 
 export function mount(root,data,fares){
@@ -76,14 +77,21 @@ export function mount(root,data,fares){
     list.replaceChildren(...(rows.length?rows.map(({r,dates})=>{
       const vals=dates.map(x=>x.v.value).filter(Number.isFinite),chart=(ui.mode==='award'?AWARD:UPGRADE)[ui.cabin]?.[ZONE[r.area]||'LONG'];
       const range=vals.length?`1마일당 ${Math.round(Math.min(...vals))}~${Math.round(Math.max(...vals))}원`:'가치 계산 전';
-      return el('div',{className:'route'},
+      // Cost line for the earliest seat with a value: what you pay instead of the cash fare.
+      const ex=dates.find(x=>x.v.value)?.v;
+      const lower=ui.cabin==='F'?'프레스티지':'일반석 플렉스';
+      const cost=!ex?null:ui.mode==='upgrade'
+        ?`현금 ${won(ex.fare)} 대신 → ${lower} ${won(ex.buy)} 구매 + ${ex.miles.toLocaleString('ko-KR')}마일`
+        :`현금 ${won(ex.fare)} 대신 → ${ex.miles.toLocaleString('ko-KR')}마일 + 세금 약 ${won(ex.tax)}`;
+      return el('div',{className:'route'+(cost?' has-cost':'')},
         el('div',{},el('b',{},`${r.dep} → ${r.arr}`),el('small',{},`${r.name} · ${AREA[r.area]||''}`)),
         el('div',{className:'n'},el('b',{},range),el('small',{},`${dates.length}일 · ${chart?chart.map(n=>n.toLocaleString('ko-KR')).join(' / ')+'마일 (평/성수기)':'-'}`)),
         el('div',{className:'dates'},...dates.map(({d,f,v})=>el('a',{className:'d'+(v.peak?' peak':''),target:'_blank',rel:'noopener',
           href:ui.mode==='upgrade'?koreanAirLink({trip:'OW',from:r.dep,to:r.arr,date:iso(d),cabin:ui.cabin==='F'?'business':'economy',upgrade:true}):koreanAirLink({type:'A',trip:'OW',from:r.dep,to:r.arr,date:iso(d),cabin:ui.cabin==='F'?'first':'business'}),
           title:[f.join(', '),v.peak?'성수기':'평수기',`${(v.miles||0).toLocaleString('ko-KR')}마일`,v.value?`현금 약 ${won(v.cash)} ÷ 마일 = ${v.value.toFixed(1)}원`:'현금가 없음',v.buy?`먼저 구매: 약 ${won(v.buy)}`:'','누르면 이 날짜로 예매 화면이 열립니다(로그인 필요)'].filter(Boolean).join(' · ')},
           `${d.slice(2,4)}.${d.slice(4,6)}.${d.slice(6)}`,v.value?el('em',{},` ${Math.round(v.value)}원`):''))),
-        el('a',{className:'go',href:BOOK_URL,target:'_blank',rel:'noopener'},'예매 →'));
+        el('a',{className:'go',href:BOOK_URL,target:'_blank',rel:'noopener'},'예매 →'),
+        cost&&el('div',{className:'cost'},`${dates.find(x=>x.v.value).d.slice(4,6)}/${dates.find(x=>x.v.value).d.slice(6)} 기준: ${cost} (${ex.peak?'성수기':'평수기'}, 1마일당 약 ${Math.round(ex.value)}원)`));
     }):[el('p',{className:'empty'},'조건에 맞는 남은 좌석이 없습니다.')]));
   }
   minSel.onchange=()=>{ui.min=Number(minSel.value);render();};
