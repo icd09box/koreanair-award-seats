@@ -1,6 +1,6 @@
 // Mileage award seats: data/award.json (koreanair-award-alert) + data/fares.json (STAYOVER weekly approximate fares).
 // Won per mile = (one-way cash fare without taxes) ÷ required miles; taxes and fuel surcharge are paid on award tickets too.
-import {el,won,koreanAirLink} from './ui.js?v=20261008a';
+import {el,won,koreanAirLink} from './ui.js?v=20261012a';
 
 const CABIN={F:'일등석',P:'프레스티지',E:'일반석'};
 const AREA={AME:'미주',EUR:'유럽',OCN:'대양주',EAA:'일본·중국',SEA:'동남아',CIS:'몽골'};
@@ -25,11 +25,13 @@ function nearFare(map,date){
   for(const [d,v] of Object.entries(map||{})){const g=Math.abs(Date.parse(d)-Date.parse(date));if(g<gap){gap=g;best={...v,date:d};}}
   return gap<=20*86400000?best:null;
 }
-function valueOf(fares,route,cabin,date,mode){
-  const zone=ZONE[route.area]||'LONG',peak=isPeak(fares?.peak,route.dep,date);
+function valueOf(fares,route,cabin,date,mode,peakTable=fares?.peak){
+  const zone=ZONE[route.area]||'LONG',peak=isPeak(peakTable,route.dep,date);
   const miles=(mode==='award'?AWARD:UPGRADE)[cabin]?.[zone]?.[peak?1:0];
   const r=fares?.routes?.[route.dep+'-'+route.arr];
-  const [topCabin,fromCabin]=FARE[mode][cabin],top=nearFare(r?.[topCabin],date);
+  // Award seats carry their own date's fare (koreanair-award-alert, refreshed weekly); otherwise the nearest STAYOVER fare.
+  const exact=mode==='award'&&route.fares?.[date.replace(/-/g,'')];
+  const [topCabin,fromCabin]=FARE[mode][cabin],top=exact?{...exact,date}:nearFare(r?.[topCabin],date);
   // Upgrade compares both cabins on the same calendar date when possible.
   const from=fromCabin&&top?(r?.[fromCabin]?.[top.date]?{...r[fromCabin][top.date],date:top.date}:nearFare(r?.[fromCabin],date)):null;
   if(!miles||!top||(mode==='upgrade'&&!from))return {miles,peak,value:null};
@@ -44,19 +46,23 @@ export function mount(root,data,fares){
   const cabins=data.cabins??[...new Set(data.routes.map(r=>r.cabin))].sort();
   const areas=data.areas??[...new Set(data.routes.map(r=>r.area).filter(Boolean))];
   const seatCount=c=>data.routes.filter(r=>r.cabin===c).reduce((n,r)=>n+Object.keys(r.dates).length,0);
-  const ui={cabin:cabins.find(c=>seatCount(c))??cabins[0],areas:new Set(areas),term:'',mode:'award',min:0};
+  const ui={cabin:cabins.find(c=>seatCount(c))??cabins[0],areas:new Set(areas),term:'',mode:'award',min:0,cost:data.mileCost??11};
+  // Mile cost: what one mile cost to earn (video: 상테크 ≈ 11원, 1,500원당 1마일 카드 ≈ 16원). A seat is worth it when its value beats this.
+  const hasExact=data.routes.some(r=>Object.keys(r.fares||{}).length),peakTable=data.peak??fares?.peak;
 
   const updated=new Date(data.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});
   root.append(el('div',{className:'head'},el('h1',{},'대한항공 마일리지 빈자리'),
-    el('p',{},`장거리 보너스 좌석(편도) · 날짜를 누르면 그 날짜로 마일리지 예매 화면이 열립니다(로그인 필요) · 좌석 ${updated} 조회 · `+(fares?`현금가 ${new Date(fares.updatedAt).toLocaleDateString('ko-KR')} 기준(대략, 매주 갱신) · 날짜에 마우스를 올리면 계산 근거`:'현금가 수집 전이라 1마일당 가치는 아직 표시되지 않습니다'))));
+    el('p',{},`장거리 보너스 좌석(편도) · 날짜를 누르면 그 날짜로 마일리지 예매 화면이 열립니다(로그인 필요) · 좌석 ${updated} 조회 · `+(hasExact?'현금가는 그 좌석 날짜의 대한항공 운임(7일마다 다시 조회) · 날짜 옆 금액은 1마일당 가치, 마일 원가보다 낮으면 흐리게 · 날짜에 마우스를 올리면 계산 근거':fares?`현금가 ${new Date(fares.updatedAt).toLocaleDateString('ko-KR')} 기준(대략, 매주 갱신) · 날짜에 마우스를 올리면 계산 근거`:'현금가 수집 전이라 1마일당 가치는 아직 표시되지 않습니다'))));
 
   const cabinSeg=el('div',{className:'segmented',role:'radiogroup'}),modeSeg=el('div',{className:'segmented',role:'radiogroup'}),areaChips=el('div',{className:'chips'});
-  const minSel=el('select',{disabled:!fares},...[[0,'전체'],[20,'20원 이상'],[30,'30원 이상'],[40,'40원 이상'],[50,'50원 이상'],[60,'60원 이상'],[80,'80원 이상']].map(([v,t])=>el('option',{value:v},t)));
+  const minSel=el('select',{disabled:!fares&&!hasExact},...[[0,'전체'],['cost','마일 원가보다 높은 것만'],[20,'20원 이상'],[30,'30원 이상'],[40,'40원 이상'],[50,'50원 이상'],[60,'60원 이상'],[80,'80원 이상']].map(([v,t])=>el('option',{value:v},t)));
+  const costSel=el('select',{},...[[10,'10원'],[11,'11원 · 상테크·마일리지 카드'],[13,'13원'],[16,'16원 · 1,500원당 1마일 카드']].map(([v,t])=>el('option',{value:v,selected:v===ui.cost},t)));
   const search=el('input',{type:'search',placeholder:'도시·공항 검색'});
   root.append(el('div',{className:'bar grouped'},
     el('div',{className:'group'},el('span',{className:'group-label'},'좌석 등급'),cabinSeg),
     el('div',{className:'group'},el('span',{className:'group-label'},'사용 방법'),modeSeg),
     el('div',{className:'group'},el('span',{className:'group-label'},'1마일당 가치'),minSel),
+    el('div',{className:'group'},el('span',{className:'group-label'},'마일 원가'),costSel),
     el('div',{className:'group'},el('span',{className:'group-label'},'지역'),areaChips),
     el('div',{className:'group grow'},el('span',{className:'group-label'},'검색'),search)));
   const note=el('p',{className:'count'}),count=el('p',{className:'count'}),list=el('div',{className:'routes'});
@@ -73,14 +79,16 @@ export function mount(root,data,fares){
       :'마일리지 발권: 가치 = 같은 좌석 현금 운임(세금·유류할증료 제외, 대략) ÷ 공제 마일. 세금·유류할증료는 마일리지 발권에도 따로 냅니다.';
     const term=ui.term.trim().toLowerCase();
     const rows=data.routes.filter(r=>r.cabin===ui.cabin&&ui.areas.has(r.area)&&(!term||[r.dep,r.arr,r.name].join(' ').toLowerCase().includes(term)))
-      .map(r=>({r,dates:Object.entries(r.dates).map(([d,f])=>({d,f,v:valueOf(fares,r,ui.cabin,iso(d),ui.mode)})).filter(x=>!ui.min||(x.v.value??0)>=ui.min)}))
-      .filter(x=>x.dates.length);
+      .map(r=>({r,dates:Object.entries(r.dates).map(([d,f])=>({d,f,v:valueOf(fares,r,ui.cabin,iso(d),ui.mode,peakTable)})).filter(x=>!ui.min||(x.v.value??0)>=(ui.min==='cost'?ui.cost:ui.min))}))
+      .filter(x=>x.dates.length)
+      // Best value first, as in the video's ranking; routes without a fare yet go last.
+      .sort((a,b)=>Math.max(-1,...b.dates.map(x=>x.v.value??-1))-Math.max(-1,...a.dates.map(x=>x.v.value??-1)));
     count.textContent=`${CABIN[ui.cabin]||ui.cabin} ${rows.length}개 노선 · 좌석 ${rows.reduce((n,x)=>n+x.dates.length,0)}일`;
     list.replaceChildren(...(rows.length?rows.map(({r,dates})=>{
       const vals=dates.map(x=>x.v.value).filter(Number.isFinite),chart=(ui.mode==='award'?AWARD:UPGRADE)[ui.cabin]?.[ZONE[r.area]||'LONG'];
       const range=vals.length?`1마일당 ${Math.round(Math.min(...vals))}~${Math.round(Math.max(...vals))}원`:'가치 계산 전';
-      // Cost line for the earliest seat with a value: what you pay instead of the cash fare.
-      const ex=dates.find(x=>x.v.value)?.v;
+      // Cost line for the best-value seat: what you pay instead of the cash fare.
+      const best=dates.filter(x=>x.v.value).sort((a,b)=>b.v.value-a.v.value)[0],ex=best?.v;
       const lower=ui.cabin==='F'?'프레스티지':'일반석 플렉스';
       const cost=!ex?null:ui.mode==='upgrade'
         ?`현금 ${won(ex.fare)} 대신 → ${lower} ${won(ex.buy)} 구매 + ${ex.miles.toLocaleString('ko-KR')}마일`
@@ -90,13 +98,14 @@ export function mount(root,data,fares){
         el('div',{className:'n'},el('b',{},range),el('small',{},`${dates.length}일 · ${chart?chart.map(n=>n.toLocaleString('ko-KR')).join(' / ')+'마일 (평/성수기)':'-'}`)),
         el('div',{className:'dates'},...dates.map(({d,f,v})=>el('a',{className:'d'+(v.peak?' peak':''),target:'_blank',rel:'noopener',
           href:ui.mode==='upgrade'?koreanAirLink({trip:'OW',from:r.dep,to:r.arr,date:iso(d),cabin:ui.cabin==='F'?'business':'economy',upgrade:true}):koreanAirLink({type:'A',trip:'OW',from:r.dep,to:r.arr,date:iso(d),cabin:ui.cabin==='F'?'first':'business'}),
-          title:[f.join(', '),v.peak?'성수기':'평수기',`${(v.miles||0).toLocaleString('ko-KR')}마일`,v.value?`현금 약 ${won(v.cash)} ÷ 마일 = ${v.value.toFixed(1)}원`:'현금가 없음',v.buy?`먼저 구매: 약 ${won(v.buy)}`:'','누르면 이 날짜로 예매 화면이 열립니다(로그인 필요)'].filter(Boolean).join(' · ')},
-          `${d.slice(2,4)}.${d.slice(4,6)}.${d.slice(6)}`,v.value?el('em',{},` ${Math.round(v.value)}원`):''))),
+          title:[f.join(', '),v.peak?'성수기':'평수기',`${(v.miles||0).toLocaleString('ko-KR')}마일`,v.value?`현금 약 ${won(v.cash)} ÷ 마일 = ${v.value.toFixed(1)}원`:'현금가 없음',v.value?`원가 ${ui.cost}원 기준 ${v.cash>=v.miles*ui.cost?'이득':'손해'} 약 ${won(Math.abs(Math.round((v.cash-v.miles*ui.cost)/1000)*1000))}`:'',v.buy?`먼저 구매: 약 ${won(v.buy)}`:'','누르면 이 날짜로 예매 화면이 열립니다(로그인 필요)'].filter(Boolean).join(' · ')},
+          `${d.slice(2,4)}.${d.slice(4,6)}.${d.slice(6)}`,v.value?el('em',{className:v.value<ui.cost?'loss':''},` ${Math.round(v.value)}원`):''))),
         el('a',{className:'go',href:BOOK_URL,target:'_blank',rel:'noopener'},'예매 →'),
-        cost&&el('div',{className:'cost'},`${dates.find(x=>x.v.value).d.slice(4,6)}/${dates.find(x=>x.v.value).d.slice(6)} 기준: ${cost} (${ex.peak?'성수기':'평수기'}, 1마일당 약 ${Math.round(ex.value)}원)`));
+        cost&&el('div',{className:'cost'},`가장 이득인 ${best.d.slice(4,6)}/${best.d.slice(6)}: ${cost} (${ex.peak?'성수기':'평수기'}, 1마일당 약 ${Math.round(ex.value)}원 · 마일 원가 ${ui.cost}원 기준 ${ex.cash>=ex.miles*ui.cost?'이득':'손해'} 약 ${won(Math.abs(Math.round((ex.cash-ex.miles*ui.cost)/10000)*10000))})`));
     }):[el('p',{className:'empty'},seatCount(ui.cabin)?'조건에 맞는 남은 좌석이 없습니다.':`현재 남은 ${CABIN[ui.cabin]||ui.cabin} 좌석이 없습니다. 새로 열리면 카톡으로 알려드립니다.`)]));
   }
-  minSel.onchange=()=>{ui.min=Number(minSel.value);render();};
+  minSel.onchange=()=>{ui.min=minSel.value==='cost'?'cost':Number(minSel.value);render();};
+  costSel.onchange=()=>{ui.cost=Number(costSel.value);render();};
   search.oninput=()=>{ui.term=search.value;render();};
   render();
 }
