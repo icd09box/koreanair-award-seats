@@ -1,5 +1,5 @@
 // 변태발권 survey: data/stayover.json from STAYOVER (cities[] same city both trips, pairs[] first trip code → second trip cityB).
-import {el,won,koreanAirLink} from './ui.js?v=20261012a';
+import {el,won,koreanAirLink} from './ui.js?v=20261106a';
 
 const NAMES={NRT:'도쿄 나리타',HND:'도쿄 하네다',KIX:'오사카',NGO:'나고야',FUK:'후쿠오카',CTS:'삿포로',OKA:'오키나와',KOJ:'가고시마',KMQ:'고마쓰',OKJ:'오카야마',KIJ:'니가타',AOJ:'아오모리',
   PEK:'베이징',PVG:'상하이',CAN:'광저우',SZX:'선전',TAO:'칭다오',SHE:'선양',DLC:'다롄',XMN:'샤먼',TSN:'톈진',XIY:'시안',WEH:'웨이하이',YNJ:'옌지',CKG:'충칭',NKG:'난징',TPE:'타이베이',KHH:'가오슝',HKG:'홍콩',MFM:'마카오',UBN:'울란바토르',
@@ -63,7 +63,29 @@ function row(c,people,open,toggle){
   return [tr,detail];
 }
 
-export function mount(root,data){
+// index: data/stayover-index.json (one entry per surveyed departure month); each month's results load on demand.
+export function mount(root,index){
+  const months=(index?.months||[]).filter(m=>m.month);
+  if(!months.length){root.append(el('p',{className:'empty'},'아직 조사 결과가 없습니다.'));return;}
+  const label=m=>`${m.month.slice(0,4)}년 ${Number(m.month.slice(5))}월 출국`+(m.citiesDone?` · 도시 ${m.citiesDone}/${m.cities}곳 조사`:' · 조사 전');
+  const monthSel=el('select',{},...months.map(m=>el('option',{value:m.month,disabled:!m.citiesDone},label(m))));
+  const start=months.find(m=>m.citiesDone)?.month||months[0].month;
+  monthSel.value=start;
+  root.append(el('div',{className:'bar grouped month-bar'},el('div',{className:'group grow'},el('span',{className:'group-label'},'첫 출국월'),monthSel),
+    el('div',{className:'group'},el('span',{className:'group-label'},'수집'),el('small',{},'다음 달부터 12개월을 가까운 달부터 차례로 조사합니다 (새벽 자동 수집)'))));
+  const body=el('div',{}),loaded={};
+  root.append(body);
+  async function load(m){
+    body.replaceChildren(el('p',{className:'empty'},'불러오는 중…'));
+    try{loaded[m]??=await fetch(`data/stayover-${m}.json?t=${Date.now()}`).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});}
+    catch(e){body.replaceChildren(el('p',{className:'empty'},'이 달의 결과를 불러오지 못했습니다. '+e.message));return;}
+    body.replaceChildren();show(body,loaded[m]);
+  }
+  monthSel.onchange=()=>load(monthSel.value);
+  load(start);
+}
+
+function show(root,data){
   const p=data.state?.progress||{},people=data.job?.settings?.people||1,regions=Object.keys(GROUPS).concat('기타');
   const ui={view:'results',cheaper:true,regions:new Set(regions),term:'',kind:'all',max:Infinity,stay:'all'};
   root.append(el('div',{className:'head'},el('h1',{},`변태발권 조사 · ${data.job?.month||''} 출국`),

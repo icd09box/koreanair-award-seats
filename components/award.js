@@ -1,6 +1,6 @@
 // Mileage award seats: data/award.json (koreanair-award-alert) + data/fares.json (STAYOVER weekly approximate fares).
 // Won per mile = (one-way cash fare without taxes) ÷ required miles; taxes and fuel surcharge are paid on award tickets too.
-import {el,won,koreanAirLink} from './ui.js?v=20261012a';
+import {el,won,koreanAirLink} from './ui.js?v=20261106a';
 
 const CABIN={F:'일등석',P:'프레스티지',E:'일반석'};
 const AREA={AME:'미주',EUR:'유럽',OCN:'대양주',EAA:'일본·중국',SEA:'동남아',CIS:'몽골'};
